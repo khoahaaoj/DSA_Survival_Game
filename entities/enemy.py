@@ -1,52 +1,55 @@
 """
 Module định nghĩa các thực thể thù địch trong trò chơi.
-Được nâng cấp tích hợp Trí tuệ bầy đàn (Boids) ở Tuần 3.
+Đã tích hợp Auto-Crop để hình ảnh quái to rõ, sát thương, và Trí tuệ bầy đàn (Boids).
 """
 import pygame
 import math
+import os
+import random
 
 class Enemy:
-    """
-    Lớp đại diện cho quái vật rượt đuổi người chơi.
-
-    Attributes:
-        x (float): Tọa độ trục X hiện tại trên bản đồ (World Coordinate).
-        y (float): Tọa độ trục Y hiện tại trên bản đồ.
-        speed (float): Tốc độ di chuyển cơ bản.
-        size (int): Kích thước hitbox của quái vật.
-        color (tuple): Màu sắc hiển thị (RGB).
-    """
-
     def __init__(self, x: float, y: float):
-        """
-        Khởi tạo quái vật mới tại tọa độ xác định.
-
-        Args:
-            x (float): Tọa độ X ban đầu.
-            y (float): Tọa độ Y ban đầu.
-        """
         self.x = x
         self.y = y
-        self.speed = 2.5
-        self.size = 35
-        self.color = (255, 50, 50)  # Màu đỏ cảnh báo
+        self.speed = 2.0     # Quái chạy chậm hơn Player một chút
+        self.size = 64       # Ép kích thước to bằng Player (64x64)
+        self.damage = 10     # Sát thương mỗi lần cắn trúng
+
+        # --- ANIMATION TRẠNG THÁI ---
+        self.facing_right = True
+        # Random nhịp độ ban đầu để quái vật không nhảy đều tăm tắp như tập thể dục
+        self.animation_timer = random.randint(0, 20)
+        self.current_frame = 0
+        self.frames = []
+
+        # --- THUẬT TOÁN LOAD VÀ AUTO-CROP ---
+        img_path = os.path.join("assets", "enemy.png")
+        if os.path.exists(img_path):
+            sheet = pygame.image.load(img_path).convert_alpha()
+            w, h = sheet.get_width(), sheet.get_height()
+
+            # Tự động ước lượng số khung hình (Nếu ảnh dài ngoằng thì chia cắt)
+            frames_count = max(1, w // h) if w > h else 1
+            frame_width = w // frames_count
+
+            for i in range(frames_count):
+                rect = pygame.Rect(i * frame_width, 0, frame_width, h)
+                frame_surface = sheet.subsurface(rect)
+
+                # Gọt bỏ viền trong suốt (padding)
+                bounding_rect = frame_surface.get_bounding_rect()
+                if bounding_rect.width > 0 and bounding_rect.height > 0:
+                    cropped = frame_surface.subsurface(bounding_rect)
+                    scaled = pygame.transform.scale(cropped, (self.size, self.size))
+                    self.frames.append(scaled)
+
+        # Backup nếu lỗi ảnh
+        if len(self.frames) == 0:
+            backup_img = pygame.Surface((self.size, self.size))
+            backup_img.fill((255, 50, 50))
+            self.frames.append(backup_img)
 
     def update_movement(self, target_x: float, target_y: float, quadtree) -> float:
-        """
-        Tính toán toán học Vector kết hợp 2 yếu tố:
-        1. Lực rượt đuổi (Attraction): Đi thẳng về phía người chơi.
-        2. Lực đẩy bầy đàn (Separation - Boids): Né các quái vật khác.
-
-        Truy vấn hàng xóm siêu tốc thông qua QuadTree (O(log N)).
-
-        Args:
-            target_x (float): Tọa độ X của Player.
-            target_y (float): Tọa độ Y của Player.
-            quadtree (QuadTree): Cấu trúc cây tứ phân để tìm hàng xóm.
-
-        Returns:
-            float: Khoảng cách tới Player (dùng để đẩy vào Min-Heap).
-        """
         # 1. VECTOR RƯỢT ĐUỔI
         dx = target_x - self.x
         dy = target_y - self.y
@@ -57,7 +60,13 @@ class Enemy:
             dir_x = dx / dist_to_player
             dir_y = dy / dist_to_player
 
-        # 2. VECTOR LỰC ĐẨY BẦY ĐÀN (Boids Separation)
+        # Lật mặt dựa trên hướng di chuyển
+        if dir_x > 0:
+            self.facing_right = True
+        elif dir_x < 0:
+            self.facing_right = False
+
+        # 2. VECTOR LỰC ĐẨY BẦY ĐÀN (Boids)
         sep_x, sep_y = 0, 0
         search_radius = self.size * 1.2
         search_rect = pygame.Rect(
@@ -87,7 +96,7 @@ class Enemy:
                 sep_x /= s_dist
                 sep_y /= s_dist
 
-        # 3. TỔNG HỢP VECTOR VÀ CHUẨN HÓA
+        # 3. TỔNG HỢP VÀ DI CHUYỂN
         final_dx = (dir_x * 1.0) + (sep_x * 1.5)
         final_dy = (dir_y * 1.0) + (sep_y * 1.5)
 
@@ -99,14 +108,25 @@ class Enemy:
         return dist_to_player
 
     def draw(self, screen: pygame.Surface, camera_x: float, camera_y: float):
-        """
-        Vẽ quái vật lên màn hình hiển thị dựa trên tọa độ Camera.
-
-        Args:
-            screen (pygame.Surface): Bề mặt (Surface) chính.
-            camera_x (float): Tọa độ X của Camera.
-            camera_y (float): Tọa độ Y của Camera.
-        """
         draw_x = self.x - camera_x
         draw_y = self.y - camera_y
-        pygame.draw.rect(screen, self.color, (draw_x, draw_y, self.size, self.size))
+
+        # Chạy Animation nếu có nhiều khung hình, không thì chỉ nhún nhảy
+        self.animation_timer += 1
+        if len(self.frames) > 1:
+            if self.animation_timer >= 6:
+                self.current_frame = (self.current_frame + 1) % len(self.frames)
+                self.animation_timer = 0
+        else:
+            # Hiệu ứng bobbing (nhún) cho ảnh tĩnh
+            if (self.animation_timer // 10) % 2 == 0:
+                draw_y -= 4
+
+        img_to_draw = self.frames[self.current_frame]
+        img_to_draw = pygame.transform.flip(img_to_draw, not self.facing_right, False)
+
+        # Căn giữa ảnh vào tọa độ
+        img_rect = img_to_draw.get_rect()
+        img_rect.center = (draw_x, draw_y)
+
+        screen.blit(img_to_draw, img_rect.topleft)
