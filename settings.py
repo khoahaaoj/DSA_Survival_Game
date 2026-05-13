@@ -10,8 +10,8 @@ FPS = 60           # Tốc độ khung hình (Frames Per Second)
 # ==========================================
 # THÔNG SỐ BẢN ĐỒ (WORLD SPACE)
 # ==========================================
-MAP_WIDTH = 3000   # Chiều rộng bản đồ thực tế
-MAP_HEIGHT = 3000  # Chiều cao bản đồ thực tế
+MAP_WIDTH = 10000   # Chiều rộng bản đồ thực tế
+MAP_HEIGHT = 10000  # Chiều cao bản đồ thực tế
 TILE_SIZE = 64     # Kích thước của 1 ô gạch (Tile cỏ)
 
 # ==========================================
