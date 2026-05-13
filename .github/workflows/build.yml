@@ -1,1 +1,39 @@
+name: Build Windows EXE
 
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pygame
+
+      - name: Build with PyInstaller
+        run: |
+          python -m PyInstaller --onedir --windowed --name "DSA_Survival_Game" `
+            --add-data "assets;assets" `
+            --add-data "settings.py;." `
+            --hidden-import pygame `
+            --collect-all pygame `
+            main.py
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DSA-Survival-Game-Windows
+          path: dist/DSA_Survival_Game
