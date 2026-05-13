@@ -7,19 +7,18 @@ Một tựa game sinh tồn 2D nhịp độ cao được phát triển trên n�
 ## 📸 Ảnh minh họa (Screenshots)
 
 ### 1. Chiến đấu nhịp độ cao & Trí tuệ bầy đàn (Boids AI)
-![Combat Demo](combat_demo.png)
+<img width="1284" height="737" alt="image" src="https://github.com/user-attachments/assets/1400efbb-6b1c-4dd5-af27-efa102aada8b" />
+
 > *Hệ thống tự động phân tán quái vật bao vây người chơi kết hợp với Particle System hiển thị sát thương.*
 
 ### 2. Tối ưu không gian bằng Cây tứ phân (QuadTree)
-![QuadTree Demo](quadtree_demo.png)
+<img width="1284" height="737" alt="image" src="https://github.com/user-attachments/assets/9c4bafa3-79fc-40b7-8f4a-92c4d0275c01" />
+
 > *Giao diện Debug trực quan hóa thuật toán phân bào không gian đệ quy. Khu vực đông quái được chẻ nhỏ để giảm phạm vi tính toán va chạm.*
 
-### 3. Hệ thống nâng cấp ngẫu nhiên có trọng số (Weighted Random)
-![Level Up Demo](levelup_demo.png)
-> *Tỷ lệ sinh quái vật và rớt đồ được kiểm soát bằng thuật toán Binary Search trên Prefix Sum Array, đảm bảo tính cân bằng thay vì phân phối đều.*
+### 3. Giao diện điều khiển & Phân luồng âm thanh
+<img width="1280" height="752" alt="image" src="https://github.com/user-attachments/assets/6ef79cff-bcc9-4968-b376-2992d8734887" />
 
-### 4. Giao diện điều khiển & Phân luồng âm thanh
-![Pause Demo](pause_demo.png)
 > *Pause Menu với kỹ thuật Alpha Blending, cho phép can thiệp trực tiếp vào 2 luồng âm thanh BGM và SFX độc lập.*
 
 ---
@@ -58,4 +57,4 @@ Dự án không lạm dụng sức mạnh phần cứng mà tập trung vào t�
 
 ## 👨‍💻 Tác giả
 - **Hà Nhật Khoa** (MSSV: 25520854)
-- Lớp: IT003.Q21.CTTN (Cử nhân Tài năng) - Đại học Công nghệ Thông tin (UIT)
+- Lớp: IT003.Q21.CTTN  - Đại học Công nghệ Thông tin (UIT)
