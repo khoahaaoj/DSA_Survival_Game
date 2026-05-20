@@ -92,6 +92,7 @@ class Enemy:
 
         sep_x, sep_y = 0, 0
         search_radius = self.size * 1.2
+        search_radius_sq = search_radius * search_radius  # Tránh sqrt trong bước lọc đầu
         search_rect = pygame.Rect(self.x - search_radius, self.y - search_radius, search_radius * 2, search_radius * 2)
         neighbors = quadtree.query(search_rect, [])
         repel_count = 0
@@ -100,8 +101,9 @@ class Enemy:
             if neighbor is not self:
                 ndx = self.x - neighbor.x
                 ndy = self.y - neighbor.y
-                ndist = math.sqrt(ndx ** 2 + ndy ** 2)
-                if 0 < ndist < search_radius:
+                ndist_sq = ndx * ndx + ndy * ndy   # So sánh bằng bình phương trước
+                if 0 < ndist_sq < search_radius_sq:
+                    ndist = math.sqrt(ndist_sq)    # Chỉ gọi sqrt khi đã chắc chắn có lân cận
                     sep_x += (ndx / ndist)
                     sep_y += (ndy / ndist)
                     repel_count += 1
@@ -165,7 +167,7 @@ class Zombie(Enemy):
     """Lớp quái vật Zombie có chỉ số cơ bản, di chuyển ở tốc độ trung bình."""
 
     def __init__(self, x, y, player_level):
-        super().__init__(x, y, player_level, "zombie.png", 1.2, 50, 10, (34, 139, 34))
+        super().__init__(x, y, player_level, "zombie.png", 1.2, 75, 10, (34, 139, 34))  # HP: 50 → 75
 
 
 class Bat(Enemy):
@@ -179,4 +181,4 @@ class Golem(Enemy):
     """Lớp quái vật Golem trâu bò, di chuyển cực chậm nhưng lượng máu và sát thương lớn."""
 
     def __init__(self, x, y, player_level):
-        super().__init__(x, y, player_level, "golem.png", 0.6, 150, 25, (105, 105, 105))
+        super().__init__(x, y, player_level, "golem.png", 0.6, 200, 25, (105, 105, 105))  # HP: 150 → 200

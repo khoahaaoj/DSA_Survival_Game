@@ -9,7 +9,7 @@ class ExpGem:
     def __init__(self, x: float, y: float):
         self.x = x
         self.y = y
-        self.value = 25  # Cần nhặt 4 viên để lên Level 2 (100 EXP)
+        self.value = 18  # Cần ~6 viên để lên Level 2 — t\u1ea1o tension t\u1ed1t h\u01a1n \u1edf \u0111\u1ea7u game
         self.size = 8
 
     def draw(self, screen: pygame.Surface, camera_x: float, camera_y: float):

@@ -1,438 +1,429 @@
 """
-Module Core của hệ thống: Chứa Game Loop chính và các bộ điều khiển trung tâm.
-Quản lý việc tích hợp cấu trúc dữ liệu (QuadTree, MinHeap), hệ thống kết xuất đồ họa (Rendering),
-xử lý vật lý (Physics/Collision), và phân luồng âm thanh đa kênh (Multi-channel Audio).
+DSA Survival Game — Vòng lặp chính (Game Engine Pipeline).
+
+Kiến trúc phân lớp sau tái cấu trúc:
+  algorithms/
+    quadtree.py     — Spatial Partitioning O(log N)
+    min_heap.py     — Priority Queue O(log N) cho Auto-Aim
+    queue.py        — FIFO Queue O(1) cho Wave System  ← MỚI
+  entities/
+    player.py / enemy.py / weapon.py / item.py
+  managers/
+    wave_manager.py    — WaveManager: chuỗi wave qua Queue
+    upgrade_manager.py — Build pool, apply upgrade, draw cards
+    renderer.py        — HUD, Pause, Game Over, Wave Banner
+  main.py (file này) — Chỉ chứa init + game loop core (~250 dòng)
 """
-import pygame
-import sys
 import os
-import random
+import sys
 import math
+import random
 
-from settings import *
-from entities.player import Player
-from entities.enemy import Enemy
-from entities.item import ExpGem
-from algorithms.min_heap import MinHeap
-from algorithms.quadtree import QuadTree
-from entities.enemy import Zombie, Bat, Golem
+import pygame
+
+from settings         import WIDTH, HEIGHT, FPS, MAP_WIDTH, MAP_HEIGHT, TILE_SIZE, GRASS_FALLBACK_COLOR
+from algorithms.quadtree  import QuadTree
+from algorithms.min_heap  import MinHeap
+from entities.player  import Player
+from entities.item    import ExpGem
+
+from managers.wave_manager    import WaveManager
+from managers.upgrade_manager import build_upgrade_pool, apply_upgrade, draw_level_up_screen
+from managers.renderer        import Renderer
 
 
+# ---------------------------------------------------------------------------
+# Bộ nạp tài nguyên Map (Asset Loader + Tile Variation Cache)
+# ---------------------------------------------------------------------------
 def load_grass_tiles() -> list:
     """
-    Tải bộ nhớ đệm (Cache) và tạo các biến thể không gian (Tile Variations).
-    Thực hiện lật ảnh ngang/dọc để tái sử dụng tài nguyên bộ nhớ,
-    giúp đa dạng hóa kết xuất bản đồ nền mà không cần thêm file đồ họa mới.
-
-    Returns:
-        list: Danh sách chứa các Surface của gạch cỏ (đã tối ưu hóa).
+    Load grass texture, tạo 4 biến thể bằng flip matrix để đa dạng bản đồ.
+    Tái sử dụng 1 texture gốc — tránh tốn bộ nhớ VRAM.
     """
     img_path = os.path.join("assets", "grass.png")
-    variations = []
-    if os.path.exists(img_path):
-        base_img = pygame.image.load(img_path).convert()
-        base_img = pygame.transform.scale(base_img, (TILE_SIZE, TILE_SIZE))
-        variations.append(base_img)
-        variations.append(pygame.transform.flip(base_img, True, False))
-        variations.append(pygame.transform.flip(base_img, False, True))
-        variations.append(pygame.transform.flip(base_img, True, True))
-    return variations
+    if not os.path.exists(img_path):
+        return []
+    base = pygame.image.load(img_path).convert()
+    base = pygame.transform.scale(base, (TILE_SIZE, TILE_SIZE))
+    return [
+        base,
+        pygame.transform.flip(base, True,  False),
+        pygame.transform.flip(base, False, True),
+        pygame.transform.flip(base, True,  True),
+    ]
 
 
-def draw_map(screen: pygame.Surface, camera_x: float, camera_y: float, grass_tiles: list):
+def draw_map(screen: pygame.Surface, camera_x: float, camera_y: float,
+             grass_tiles: list):
     """
-    Kết xuất đồ họa bản đồ theo thuật toán Viewport Culling.
-    Chỉ vẽ các phần của bản đồ nằm trong vùng nhìn thấy của Camera (Frustum Culling 2D),
-    nhằm tiết kiệm tối đa chu kỳ xử lý của CPU.
-
-    Args:
-        screen (pygame.Surface): Bề mặt vẽ chính của trò chơi.
-        camera_x (float): Hệ tọa độ toàn cục X của Camera.
-        camera_y (float): Hệ tọa độ toàn cục Y của Camera.
-        grass_tiles (list): Cache bộ nhớ chứa các biến thể ảnh cỏ.
+    Kết xuất bản đồ với Viewport Culling — chỉ vẽ tiles nằm trong màn hình.
+    Hash (col*31 + row*17) % N để gán tile biến thể cố định mỗi vị trí.
     """
-    start_col = int(camera_x // TILE_SIZE)
-    start_row = int(camera_y // TILE_SIZE)
-    cols = (WIDTH // TILE_SIZE) + 2
-    rows = (HEIGHT // TILE_SIZE) + 2
-
-    for row in range(start_row, start_row + rows):
-        for col in range(start_col, start_col + cols):
-            tile_x = col * TILE_SIZE
-            tile_y = row * TILE_SIZE
-            if tile_x < MAP_WIDTH and tile_y < MAP_HEIGHT:
-                draw_x = tile_x - camera_x
-                draw_y = tile_y - camera_y
+    sc = int(camera_x // TILE_SIZE)
+    sr = int(camera_y // TILE_SIZE)
+    for row in range(sr, sr + HEIGHT // TILE_SIZE + 2):
+        for col in range(sc, sc + WIDTH // TILE_SIZE + 2):
+            tx, ty = col * TILE_SIZE, row * TILE_SIZE
+            if tx < MAP_WIDTH and ty < MAP_HEIGHT:
+                dx, dy = tx - camera_x, ty - camera_y
                 if grass_tiles:
-                    tile_index = (col * 31 + row * 17) % len(grass_tiles)
-                    screen.blit(grass_tiles[tile_index], (draw_x, draw_y))
+                    screen.blit(grass_tiles[(col * 31 + row * 17) % len(grass_tiles)], (dx, dy))
                 else:
-                    pygame.draw.rect(screen, GRASS_FALLBACK_COLOR, (draw_x, draw_y, TILE_SIZE, TILE_SIZE))
+                    pygame.draw.rect(screen, GRASS_FALLBACK_COLOR,
+                                     (dx, dy, TILE_SIZE, TILE_SIZE))
 
 
+# ---------------------------------------------------------------------------
 def main():
     """
-    Hàm thực thi vòng lặp chính của hệ thống (Main Game Engine Loop).
+    Vòng đời chính của Game Engine.
 
-    Quy trình xử lý (Pipeline) của mỗi Frame (khung hình):
-    1. Input Handling: Bắt sự kiện người dùng (Phím, Chuột, Menu).
-    2. Physics & DSA Updates:
-       - Cập nhật và chèn thực thể vào cây không gian QuadTree.
-       - Tính toán khoảng cách và đẩy vào MinHeap để tối ưu ngắm bắn.
-       - Giải quyết va chạm (Collision Resolution).
-    3. Rendering: Xóa màn hình, tính toán Culling và vẽ lại toàn bộ State mới.
+    Thứ tự xử lý mỗi frame:
+        1. Input Phase    — thu thập sự kiện, xử lý Menu/Pause/LevelUp
+        2. Update Phase   — WaveManager, Physics, QuadTree, MinHeap, Collision
+        3. Rendering Pass — World → Entities → HUD → Overlays (thứ tự Layer)
     """
-    # =========================================================================
-    # PHẦN 1: KHỞI TẠO HỆ THỐNG ENGINE (SETUP)
-    # =========================================================================
-
-    # Khởi tạo Mixer âm thanh trước tiên để tránh bị trễ tiếng (delay)
+    # ===== KHỞI TẠO ENGINE =====
     pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
     pygame.mixer.init()
 
-    # Tạo cửa sổ game với kích thước định sẵn trong settings.py
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("DSA Survival - Đồ án lớp Tài năng")
+    pygame.display.set_caption("DSA Survival - UIT")
+    clock  = pygame.time.Clock()
 
-    # Khởi tạo đồng hồ để kiểm soát FPS (Số khung hình trên giây)
-    clock = pygame.time.Clock()
-
-    # --- TẢI ÂM THANH & PHÂN LUỒNG ---
-    # Luồng 1: Nhạc Nền (BGM - Chạy liên tục)
-    bgm_path = os.path.join("assets", "bgm.mp3")
+    # --- Audio ---
+    bgm_path  = os.path.join("assets", "bgm.mp3")
     has_music = os.path.exists(bgm_path)
-    music_on = True  # Cờ trạng thái bật/tắt nhạc
+    music_on  = True
     if has_music:
         pygame.mixer.music.load(bgm_path)
-        pygame.mixer.music.set_volume(0.1)  # Để nhạc nhỏ thôi cho đỡ nhức đầu
-        pygame.mixer.music.play(-1)  # -1 nghĩa là lặp lại vô tận
+        pygame.mixer.music.set_volume(0.1)
+        pygame.mixer.music.play(-1)
 
-    # Luồng 2: Hiệu ứng âm thanh vật lý (SFX - Phát khi có sự kiện)
-    sfx_on = True  # Cờ trạng thái bật/tắt hiệu ứng âm thanh
+    sfx_on  = True
     sfx_hit = pygame.mixer.Sound("assets/hit.wav") if os.path.exists("assets/hit.wav") else None
     sfx_gem = pygame.mixer.Sound("assets/gem.wav") if os.path.exists("assets/gem.wav") else None
     if sfx_hit: sfx_hit.set_volume(0.2)
     if sfx_gem: sfx_gem.set_volume(0.4)
 
-    # =========================================================================
-    # PHẦN 2: KHỞI TẠO TRẠNG THÁI GAME (GAME STATE)
-    # =========================================================================
+    # --- Fonts ---
+    font_large  = pygame.font.SysFont(None, 80)
+    font_medium = pygame.font.SysFont(None, 48)
+    font_small  = pygame.font.SysFont("Arial", 28, bold=True)
+    font_dmg    = pygame.font.SysFont(None, 24)
+    fonts_tuple = (font_large, font_medium, font_small, font_dmg)
 
-    # Tải hình ảnh bản đồ cỏ
+    # --- Managers ---
+    renderer = Renderer(fonts_tuple)
+
+    # --- Assets ---
     grass_tiles = load_grass_tiles()
 
-    # Đặt nhân vật (Player) xuất hiện ở chính giữa bản đồ lớn (MAP_WIDTH, MAP_HEIGHT)
-    player = Player(MAP_WIDTH // 2, MAP_HEIGHT // 2)
+    # --- pygame Event ID cho Spawn ---
+    SPAWN_EVENT = pygame.USEREVENT + 1
 
-    # Khởi tạo các mảng chứa thực thể trong game
-    enemies = []  # Chứa quái vật
-    gems = []  # Chứa ngọc kinh nghiệm rớt ra
-    floating_texts = []  # Chứa các con số sát thương nảy lên
+    # ===== HÀM RESET (Khởi tạo / Chơi lại) =====
+    def make_state():
+        """Tạo dict trạng thái game mới (dùng cho lần đầu và restart)."""
+        wm = WaveManager(SPAWN_EVENT)   # Nạp Queue wave, bắt đầu Wave 1
+        return {
+            'player'          : Player(MAP_WIDTH // 2, MAP_HEIGHT // 2),
+            'enemies'         : [],
+            'gems'            : [],
+            'floating_texts'  : [],
+            'particles'       : [],   # Death particles
+            'target_heap'     : MinHeap(),
+            'wave_manager'    : wm,
+            'kill_count'      : 0,
+            'start_ticks'     : pygame.time.get_ticks(),
+            'paused_duration' : 0,
+            'last_pause_start': 0,
+            'timer_text'      : "00:00",
+            'camera_x'        : 0.0,
+            'camera_y'        : 0.0,
+            # Visual FX
+            'screen_shake'     : 0,   # Frame countdown cho screen shake
+            'wave_banner_timer': 0,   # Frame countdown cho wave announcement
+            # UI state
+            'is_paused'        : False,
+            'game_over'        : False,
+            'show_quadtree'    : False,
+            'showing_level_up' : False,
+            'level_up_choices' : [],
+            'level_up_rects'   : [],
+        }
 
-    # Khởi tạo Cấu trúc dữ liệu Min-Heap dùng để ưu tiên ngắm bắn mục tiêu gần nhất
-    target_heap = MinHeap()
+    s = make_state()   # s = game state dict
 
-    # Cài đặt một bộ đếm giờ (Timer) để tự động sinh quái vật mỗi 350ms
-    SPAWN_ENEMY_EVENT = pygame.USEREVENT + 1
-    pygame.time.set_timer(SPAWN_ENEMY_EVENT, 350)
-
-    # Các biến cờ (Flags) điều khiển luồng game
-    show_quadtree = False  # Nhấn Q để hiện lưới QuadTree (Debug)
-    is_paused = False  # Trạng thái tạm dừng
-    game_over = False  # Trạng thái thua game
-
-    # Các biến phục vụ tính toán thời gian và điểm số
-    kill_count = 0
-    start_ticks = pygame.time.get_ticks()  # Lưu thời điểm game bắt đầu
-    paused_duration = 0  # Tổng thời gian game bị tạm dừng
-    last_pause_start = 0  # Mốc thời gian bắt đầu nhấn Pause
-    timer_text = "00:00"
-
-    # =========================================================================
-    # PHẦN 3: GIAO DIỆN NGƯỜI DÙNG (UI/HUD)
-    # =========================================================================
-
-    # Tải các font chữ với kích thước khác nhau
-    font_large = pygame.font.SysFont(None, 80)
-    font_medium = pygame.font.SysFont(None, 48)
-    font_small = pygame.font.SysFont("Arial", 28, bold=True)
-    font_dmg = pygame.font.SysFont(None, 24)
-
-    # Khởi tạo các hộp tương tác (Rect) cho nút bấm Menu
-    pause_btn_rect = pygame.Rect(WIDTH - 50, 45, 35, 35)  # Nút góc phải trên
-    menu_rect = pygame.Rect(WIDTH // 2 - 150, HEIGHT // 2 - 150, 300, 300)  # Khung Menu Pause
-    resume_btn_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 - 60, 200, 50)
-    toggle_music_btn_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 + 10, 200, 50)
-    toggle_sfx_btn_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 + 80, 200, 50)
-
-    # =========================================================================
-    # PHẦN 4: VÒNG LẶP HỆ THỐNG CHÍNH (MAIN GAME LOOP)
-    # Chạy liên tục 60 lần/giây (FPS = 60) cho đến khi người dùng tắt game
-    # =========================================================================
+    # ===== VÒNG LẶP CHÍNH =====
     running = True
     while running:
-        current_time = pygame.time.get_ticks()  # Lấy thời gian hiện tại của hệ thống
+        current_time = pygame.time.get_ticks()
 
-        # Tính toán thời gian sinh tồn (Giây) hiển thị lên màn hình
-        # Lưu ý: Phải trừ đi khoảng thời gian game bị Pause để đồng hồ không chạy láo
-        if not is_paused and not game_over:
-            total_seconds = (current_time - start_ticks - paused_duration) // 1000
-            minutes = total_seconds // 60
-            seconds = total_seconds % 60
-            timer_text = f"{minutes:02d}:{seconds:02d}"
+        # Cập nhật timer (không chạy khi pause/game_over/level_up)
+        if not s['is_paused'] and not s['game_over'] and not s['showing_level_up']:
+            total_s = (current_time - s['start_ticks'] - s['paused_duration']) // 1000
+            s['timer_text'] = f"{total_s // 60:02d}:{total_s % 60:02d}"
 
-        # ---------------------------------------------------------------------
-        # BƯỚC 4.1: XỬ LÝ SỰ KIỆN (INPUT HANDLING)
-        # Bắt các thao tác phím, chuột của người chơi
-        # ---------------------------------------------------------------------
+        # =================================================================
+        # BƯỚC 1: INPUT PHASE
+        # =================================================================
         for event in pygame.event.get():
-            if event.type == pygame.QUIT: running = False  # Tắt cửa sổ
+            if event.type == pygame.QUIT:
+                running = False
 
-            # Xử lý khi nhấn phím trên bàn phím
+            # --- Keyboard ---
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
-                    show_quadtree = not show_quadtree  # Bật/tắt xem QuadTree
-                if event.key == pygame.K_ESCAPE or event.key == pygame.K_p:
-                    if not game_over:
-                        is_paused = not is_paused  # Bật/tắt Pause
-                        if is_paused:
-                            last_pause_start = pygame.time.get_ticks()  # Bắt đầu đếm giờ Pause
-                        else:
-                            paused_duration += pygame.time.get_ticks() - last_pause_start  # Cộng dồn thời gian đã Pause
+                    s['show_quadtree'] = not s['show_quadtree']
 
-            # Xử lý khi click chuột vào các nút UI
+                if event.key in (pygame.K_ESCAPE, pygame.K_p):
+                    if not s['game_over'] and not s['showing_level_up']:
+                        s['is_paused'] = not s['is_paused']
+                        if s['is_paused']:
+                            s['last_pause_start'] = current_time
+                        else:
+                            s['paused_duration'] += current_time - s['last_pause_start']
+
+                if event.key == pygame.K_r and s['game_over']:
+                    s = make_state()   # Restart: tạo state mới hoàn toàn
+
+            # --- Mouse ---
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mouse_pos = event.pos
-                if not game_over:
-                    if not is_paused:  # Nếu đang chơi -> Bấm nút Pause nhỏ ở góc
-                        if pause_btn_rect.collidepoint(mouse_pos):
-                            is_paused = True
-                            last_pause_start = pygame.time.get_ticks()
-                    else:  # Nếu đang Pause -> Bấm các nút trong Menu
-                        if resume_btn_rect.collidepoint(mouse_pos):
-                            is_paused = False
-                            paused_duration += pygame.time.get_ticks() - last_pause_start
-                        elif toggle_music_btn_rect.collidepoint(mouse_pos) and has_music:
+                mp = event.pos
+
+                # Level-Up screen (ưu tiên cao nhất)
+                if s['showing_level_up'] and s['level_up_rects']:
+                    for idx, rect in enumerate(s['level_up_rects']):
+                        if rect.collidepoint(mp) and idx < len(s['level_up_choices']):
+                            apply_upgrade(s['level_up_choices'][idx]['id'], s['player'])
+                            s['player'].level_up_pending = False
+                            s['showing_level_up']  = False
+                            s['level_up_choices']  = []
+                            s['level_up_rects']    = []
+                            s['paused_duration']  += current_time - s['last_pause_start']
+                            break
+
+                elif not s['game_over']:
+                    if not s['is_paused']:
+                        if renderer.pause_btn_rect.collidepoint(mp):
+                            s['is_paused']         = True
+                            s['last_pause_start']  = current_time
+                    else:
+                        if renderer.resume_btn_rect.collidepoint(mp):
+                            s['is_paused']          = False
+                            s['paused_duration']   += current_time - s['last_pause_start']
+                        elif renderer.toggle_music_btn_rect.collidepoint(mp) and has_music:
                             music_on = not music_on
-                            if music_on:
-                                pygame.mixer.music.unpause()
-                            else:
-                                pygame.mixer.music.pause()
-                        elif toggle_sfx_btn_rect.collidepoint(mouse_pos):
+                            pygame.mixer.music.unpause() if music_on else pygame.mixer.music.pause()
+                        elif renderer.toggle_sfx_btn_rect.collidepoint(mp):
                             sfx_on = not sfx_on
 
-            # Sinh sản quái vật (Được kích hoạt mỗi 350ms bởi SPAWN_ENEMY_EVENT)
-            if not game_over and not is_paused:
-                if event.type == SPAWN_ENEMY_EVENT:
-                    # Toán học lượng giác: Đẻ quái vật ở một điểm ngẫu nhiên cách người chơi 700 pixel (ngoài rìa màn hình)
-                    angle = random.uniform(0, 2 * math.pi)
-                    spawn_x = player.x + math.cos(angle) * 700
-                    spawn_y = player.y + math.sin(angle) * 700
+                elif s['game_over']:
+                    if renderer.restart_btn_rect.collidepoint(mp):
+                        s = make_state()
 
-                    # Ràng buộc không cho đẻ quái ngoài giới hạn bản đồ
-                    spawn_x = max(0, min(MAP_WIDTH, spawn_x))
-                    spawn_y = max(0, min(MAP_HEIGHT, spawn_y))
+            # --- Wave Spawn Event ---
+            if (event.type == SPAWN_EVENT and not s['game_over']
+                    and not s['is_paused'] and not s['showing_level_up']):
+                new_enemy = s['wave_manager'].try_spawn(s['enemies'], s['player'])
+                if new_enemy:
+                    s['enemies'].append(new_enemy)
 
-                    # THUẬT TOÁN: Phân phối xác suất ngẫu nhiên (Weighted Random)
-                    # Quái xịn (Golem) tỷ lệ xuất hiện thấp, quái cùi (Zombie) tỷ lệ cao
-                    enemy_classes = [Zombie, Bat, Golem]
-                    chosen_enemy_class = random.choices(enemy_classes, weights=[60, 30, 10], k=1)[0]
-                    enemies.append(chosen_enemy_class(spawn_x, spawn_y, player.level))
+        # =================================================================
+        # BƯỚC 2: UPDATE PHASE (Physics + DSA)
+        # =================================================================
+        if not s['game_over'] and not s['is_paused'] and not s['showing_level_up']:
+            p   = s['player']
+            wm  = s['wave_manager']
 
-        # ---------------------------------------------------------------------
-        # BƯỚC 4.2: CẬP NHẬT TRẠNG THÁI VÀ THUẬT TOÁN (PHYSICS & DSA UPDATES)
-        # Cập nhật vị trí, va chạm, sát thương (Chỉ chạy khi game không bị Pause)
-        # ---------------------------------------------------------------------
-        if not game_over and not is_paused:
-            # 1. Nhận input di chuyển của người chơi (W A S D)
-            player.move(pygame.key.get_pressed(), MAP_WIDTH, MAP_HEIGHT)
+            # 2.0 WaveManager update — theo dõi chuyển tiếp wave để hiện banner
+            _prev_wave = wm.wave_number
+            _was_break = wm.is_break
+            wm.update(current_time)
+            if _was_break and not wm.is_break:   # Vừa kết thúc nghỉ → wave mới bắt đầu
+                s['wave_banner_timer'] = 150      # 2.5 giây ở 60FPS
 
-            # 2. XÂY DỰNG QUADTREE (O(N log N))
-            # Mỗi khung hình, xóa QuadTree cũ và xây lại cái mới chứa vị trí hiện tại của quái
-            map_boundary = pygame.Rect(0, 0, MAP_WIDTH, MAP_HEIGHT)
-            quadtree = QuadTree(map_boundary, 4)
-            for enemy in enemies:
-                quadtree.insert(enemy)
+            # 2.1 Player movement
+            p.move(pygame.key.get_pressed(), MAP_WIDTH, MAP_HEIGHT)
 
-            # 3. AI DI CHUYỂN VÀ XÂY DỰNG MIN-HEAP (O(N log N))
-            target_heap.clear()
-            for enemy in enemies:
-                # Quái vật gọi QuadTree để thực hiện Separation (tránh dẫm lên nhau) và tiến về phía người chơi
-                dist = enemy.update_movement(player.x, player.y, quadtree)
-                # Đẩy khoảng cách vào Min-Heap để súng có thể pop() ra mục tiêu gần nhất
-                target_heap.push((dist, enemy))
+            # 2.2 Xây dựng QuadTree (Spatial Partitioning)
+            quadtree = QuadTree(pygame.Rect(0, 0, MAP_WIDTH, MAP_HEIGHT), 4)
+            for e in s['enemies']:
+                quadtree.insert(e)
 
-            # 4. VŨ KHÍ TẤN CÔNG (Collision Detection)
-            # Truyền QuadTree vào vũ khí để tính toán va chạm cực nhanh
-            dmg_events = player.update_weapons(quadtree, target_heap, current_time)
+            # 2.3 Xây dựng MinHeap (Priority Queue cho Auto-Aim)
+            s['target_heap'].clear()
+            for e in s['enemies']:
+                dist = e.update_movement(p.x, p.y, quadtree)
+                s['target_heap'].push((dist, e))
+
+            # 2.4 Cập nhật vũ khí + va chạm đạn
+            dmg_events = p.update_weapons(quadtree, s['target_heap'], current_time)
             if dmg_events:
-                if sfx_hit and sfx_on: sfx_hit.play()  # Phát âm thanh xẹt xẹt
+                if sfx_hit and sfx_on: sfx_hit.play()
                 for ev in dmg_events:
-                    # Tạo hiệu ứng số sát thương nảy lên (Floating Text)
-                    floating_texts.append({'x': ev['x'], 'y': ev['y'] - 20, 'text': str(ev['damage']), 'life': 30,
-                                           'color': (255, 255, 255)})
+                    s['floating_texts'].append({
+                        'x': ev['x'], 'y': ev['y'] - 20,
+                        'text': str(ev['damage']), 'life': 30, 'color': (255, 255, 255)
+                    })
 
-            # 5. DỌN DẸP XÁC QUÁI VẬT VÀ ĐẺ NGỌC
+            # 2.5 Dọn quái chết → rớt EXP gem + spawn death particles
             new_enemies = []
-            for e in enemies:
+            for e in s['enemies']:
                 if e.hp > 0:
-                    new_enemies.append(e)  # Quái còn sống thì giữ lại
+                    new_enemies.append(e)
                 else:
-                    gems.append(ExpGem(e.x, e.y))  # Quái chết rớt ngọc
-                    kill_count += 1
-            enemies = new_enemies  # Cập nhật mảng quái vật mới
+                    s['gems'].append(ExpGem(e.x, e.y))
+                    s['kill_count'] += 1
+                    # Spawn 6 death particles mang màu của quái
+                    ec = getattr(e, 'color', (220, 80, 40))
+                    for _ in range(6):
+                        s['particles'].append({
+                            'x': e.x, 'y': e.y,
+                            'vx': random.uniform(-3.5, 3.5),
+                            'vy': random.uniform(-5.0, -1.0),
+                            'life': random.randint(18, 30),
+                            'max_life': 30,
+                            'color': ec,
+                            'size': random.randint(3, 7),
+                        })
+            s['enemies'] = new_enemies
 
-            # 6. THU THẬP NGỌC KINH NGHIỆM
+            # 2.6 Nhặt EXP gem
             new_gems = []
-            for g in gems:
-                # Dùng định lý Pythagoras tính khoảng cách từ người chơi tới viên ngọc
-                if math.sqrt((player.x - g.x) ** 2 + (player.y - g.y) ** 2) < 50:
-                    player.gain_exp(g.value)  # Nhận EXP, có thể dẫn đến Level Up
+            for g in s['gems']:
+                if math.sqrt((p.x - g.x)**2 + (p.y - g.y)**2) < 50:
+                    p.gain_exp(g.value)
                     if sfx_gem and sfx_on: sfx_gem.play()
-                    floating_texts.append(
-                        {'x': player.x, 'y': player.y - 40, 'text': f"+{g.value}", 'life': 40, 'color': (0, 255, 255)})
+                    s['floating_texts'].append({
+                        'x': p.x, 'y': p.y - 40,
+                        'text': f"+{g.value}", 'life': 40, 'color': (0, 255, 255)
+                    })
                 else:
                     new_gems.append(g)
-            gems = new_gems
+            s['gems'] = new_gems
 
-            # 7. QUÁI VẬT CẮN NGƯỜI CHƠI
-            player_rect = pygame.Rect(player.x - 16, player.y - 16, 32, 32)
-            # Lại dùng QuadTree để tìm nhanh xem có con quái nào đang đứng quanh nhân vật không
-            nearby = quadtree.query(player_rect, [])
-            for e in nearby:
-                if player_rect.colliderect(pygame.Rect(e.x - 16, e.y - 16, 32, 32)):
-                    # Cooldown đánh của quái: 0.5s (500ms) mới cắn được 1 phát tiếp theo
+            # 2.6b Kích hoạt Level-Up screen
+            if p.level_up_pending and not s['showing_level_up']:
+                pool = build_upgrade_pool(p)
+                s['level_up_choices']  = random.sample(pool, min(3, len(pool)))
+                s['showing_level_up']  = True
+                s['last_pause_start']  = current_time
+
+            # 2.7 Va chạm player với quái
+            p_rect = pygame.Rect(p.x - 16, p.y - 16, 32, 32)
+            for e in quadtree.query(p_rect, []):
+                if p_rect.colliderect(pygame.Rect(e.x - 16, e.y - 16, 32, 32)):
                     if current_time - e.last_attack_time > 500:
-                        player.hp -= e.damage
+                        p.hp -= e.damage
+                        p.damage_flash     = 12
+                        s['screen_shake']  = 8   # Screen shake 8 frame
                         e.last_attack_time = current_time
-
-                        # Văng số máu bị trừ màu đỏ
-                        offset_x = random.randint(-15, 15)
-                        offset_y = random.randint(-15, 15)
-                        floating_texts.append(
-                            {'x': player.x + offset_x, 'y': player.y - 30 + offset_y, 'text': f"-{e.damage}",
-                             'life': 45, 'color': (255, 50, 50)})
-
+                        s['floating_texts'].append({
+                            'x': p.x + random.randint(-15, 15),
+                            'y': p.y - 30 + random.randint(-15, 15),
+                            'text': f"-{e.damage}", 'life': 45, 'color': (255, 50, 50)
+                        })
                         if sfx_hit and sfx_on: sfx_hit.play()
-                        if player.hp <= 0: game_over = True  # Hết máu thì Game Over
+                        if p.hp <= 0: s['game_over'] = True
 
-            # 8. CẬP NHẬT TỌA ĐỘ CAMERA
-            # Giữ người chơi luôn ở giữa màn hình, và không cho Camera trượt ra khỏi biên bản đồ
-            camera_x = max(0, min(MAP_WIDTH - WIDTH, player.x - WIDTH // 2))
-            camera_y = max(0, min(MAP_HEIGHT - HEIGHT, player.y - HEIGHT // 2))
+            # 2.8 Camera (clamp trong bản đồ)
+            s['camera_x'] = max(0, min(MAP_WIDTH  - WIDTH,  p.x - WIDTH  // 2))
+            s['camera_y'] = max(0, min(MAP_HEIGHT - HEIGHT, p.y - HEIGHT // 2))
 
-        # ---------------------------------------------------------------------
-        # BƯỚC 4.3: KẾT XUẤT ĐỒ HỌA (RENDERING PASS)
-        # Vẽ tất cả mọi thứ lên màn hình (Theo thứ tự từ dưới lên trên)
-        # ---------------------------------------------------------------------
-
-        # Xóa màn hình cũ
+        # =================================================================
+        # BƯỚC 3: RENDERING PASS
+        # =================================================================
+        # Screen shake: lệch camera ngẫu nhiên khi bị đánh
+        _shk = s['screen_shake']
+        shake_x = random.randint(-5, 5) if _shk > 0 else 0
+        shake_y = random.randint(-3, 3) if _shk > 0 else 0
+        if _shk > 0: s['screen_shake'] -= 1
+        cx = s['camera_x'] + shake_x
+        cy = s['camera_y'] + shake_y
         screen.fill((15, 15, 15))
 
-        # Layer 1: Vẽ bản đồ nền
-        draw_map(screen, camera_x, camera_y, grass_tiles)
+        # L0 – Map + gems
+        draw_map(screen, cx, cy, grass_tiles)
+        for g in s['gems']:
+            g.draw(screen, cx, cy)
 
-        # Layer 2: Vẽ ngọc kinh nghiệm rơi trên đất
-        for g in gems: g.draw(screen, camera_x, camera_y)
+        # L1 – QuadTree debug
+        if s['show_quadtree'] and not s['game_over']:
+            quadtree.draw(screen, cx, cy)
 
-        # Layer 3 (Tùy chọn): Vẽ lưới QuadTree để báo cáo Demo
-        if show_quadtree: quadtree.draw(screen, camera_x, camera_y)
+        # L2–4 – Weapons / Enemies / Player
+        s['player'].draw_weapons(screen, cx, cy)
+        for e in s['enemies']:
+            e.draw(screen, cx, cy)
+        s['player'].draw(screen, cx, cy)
 
-        # Layer 4: Vẽ hiệu ứng vũ khí (Đạn, Sét, Vòng hào quang)
-        player.draw_weapons(screen, camera_x, camera_y)
+        # L5 – Death particles (O(N) rebuild, trước floating text để text đè lên)
+        next_particles = []
+        for pt in s['particles']:
+            pt['life'] -= 1
+            pt['x']    += pt['vx']
+            pt['y']    += pt['vy']
+            pt['vy']   += 0.25   # Trọng lực nhẹ
+            if pt['life'] > 0:
+                ratio = pt['life'] / pt['max_life']
+                size  = max(1, int(pt['size'] * ratio))
+                pygame.draw.circle(screen, pt['color'],
+                                   (int(pt['x'] - cx), int(pt['y'] - cy)), size)
+                next_particles.append(pt)
+        s['particles'] = next_particles
 
-        # Layer 5: Vẽ quái vật
-        for e in enemies: e.draw(screen, camera_x, camera_y)
-
-        # Layer 6: Vẽ nhân vật người chơi đè lên trên cùng
-        player.draw(screen, camera_x, camera_y)
-
-        # Layer 7: Vẽ các hiệu ứng số sát thương nổi lên
-        for ft in floating_texts[:]:
-            ft['life'] -= 1  # Giảm vòng đời của số
-            ft['y'] -= 1.5  # Cho chữ bay lên từ từ
-            if ft['life'] <= 0:
-                floating_texts.remove(ft)
-            else:
+        # L5.5 – Floating texts (O(N) rebuild)
+        next_texts = []
+        for ft in s['floating_texts']:
+            ft['life'] -= 1
+            ft['y']    -= 1.5
+            if ft['life'] > 0:
                 txt = font_dmg.render(ft['text'], True, ft['color'])
-                outline = font_dmg.render(ft['text'], True, (0, 0, 0))  # Vẽ viền đen cho dễ đọc
-                screen.blit(outline, (ft['x'] - camera_x + 1, ft['y'] - camera_y + 1))
-                screen.blit(txt, (ft['x'] - camera_x, ft['y'] - camera_y))
+                out = font_dmg.render(ft['text'], True, (0, 0, 0))
+                screen.blit(out, (ft['x'] - cx + 1, ft['y'] - cy + 1))
+                screen.blit(txt, (ft['x'] - cx,     ft['y'] - cy))
+                next_texts.append(ft)
+        s['floating_texts'] = next_texts
 
-        # Layer 8: HUD (Heads-Up Display) - Vẽ thanh EXP và đồng hồ cố định trên màn hình
-        pygame.draw.rect(screen, (20, 20, 20), (5, 5, WIDTH - 10, 25))  # Nền thanh EXP
-        exp_w = (WIDTH - 10) * (player.exp / player.max_exp)  # Tính độ dài % EXP
-        pygame.draw.rect(screen, (0, 120, 255), (5, 5, exp_w, 25))  # Thanh EXP màu xanh
-        pygame.draw.rect(screen, (200, 180, 50), (5, 5, WIDTH - 10, 25), 2)  # Viền vàng
+        # L6 – HUD
+        renderer.draw_hud(screen, s['player'], s['timer_text'],
+                          s['kill_count'], s['wave_manager'])
 
-        lvl_txt = font_small.render(f"LV {player.level}", True, (255, 255, 255))
-        screen.blit(lvl_txt, (WIDTH - 85, 5))
+        # L6.5 – Wave countdown banner (nghỉ giữa wave)
+        renderer.draw_wave_banner(screen, s['wave_manager'])
 
-        time_surf = font_medium.render(timer_text, True, (255, 255, 255))
-        time_outline = font_medium.render(timer_text, True, (0, 0, 0))
-        screen.blit(time_outline, (WIDTH // 2 - time_surf.get_width() // 2 + 2, 42))
-        screen.blit(time_surf, (WIDTH // 2 - time_surf.get_width() // 2, 40))
+        # L6.6 – Wave announcement ("WAVE X BẮT ĐẦU!" flash khi wave mới)
+        if s['wave_banner_timer'] > 0:
+            renderer.draw_wave_announcement(screen, s['wave_manager'].wave_number,
+                                            s['wave_banner_timer'])
+            s['wave_banner_timer'] -= 1
 
-        kill_txt = font_small.render(f"{kill_count} 💀", True, (255, 255, 255))
-        screen.blit(kill_txt, (WIDTH - 120, 45))
+        # L7 – Pause button + Pause menu
+        if not s['game_over']:
+            renderer.draw_pause_btn(screen, pygame.mouse.get_pos())
+        if s['is_paused'] and not s['game_over']:
+            renderer.draw_pause(screen, pygame.mouse.get_pos(),
+                                music_on, has_music, sfx_on)
 
-        # Layer 9: Nút Pause nhỏ góc phải trên
-        if not game_over:
-            btn_color = (180, 180, 180) if pause_btn_rect.collidepoint(pygame.mouse.get_pos()) else (100, 100, 100)
-            pygame.draw.rect(screen, btn_color, pause_btn_rect, border_radius=5)
-            # Vẽ 2 vạch trắng đại diện cho icon Pause
-            pygame.draw.rect(screen, (255, 255, 255), (pause_btn_rect.x + 10, pause_btn_rect.y + 8, 5, 18))
-            pygame.draw.rect(screen, (255, 255, 255), (pause_btn_rect.x + 20, pause_btn_rect.y + 8, 5, 18))
+        # L8 – Game Over screen
+        if s['game_over']:
+            renderer.draw_game_over(screen, s['player'],
+                                    s['timer_text'], s['kill_count'],
+                                    pygame.mouse.get_pos())
 
-        # Layer 10: Vẽ Overlay Menu khi bị Pause
-        if is_paused and not game_over:
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 180))  # Phủ lớp đen mờ lên toàn game
-            screen.blit(overlay, (0, 0))
+        # L9 – Level-Up screen (ưu tiên cao nhất)
+        if s['showing_level_up'] and s['level_up_choices']:
+            s['level_up_rects'] = draw_level_up_screen(
+                screen, s['level_up_choices'], fonts_tuple,
+                pygame.mouse.get_pos(), current_time
+            )
 
-            pygame.draw.rect(screen, (40, 40, 40), menu_rect, border_radius=10)
-            pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2, border_radius=10)
-
-            title_text = font_medium.render("PAUSED", True, (255, 255, 255))
-            screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, menu_rect.y + 20))
-
-            mouse_pos = pygame.mouse.get_pos()
-
-            # Nút Resume
-            res_color = (100, 200, 100) if resume_btn_rect.collidepoint(mouse_pos) else (50, 150, 50)
-            pygame.draw.rect(screen, res_color, resume_btn_rect, border_radius=5)
-            res_txt = font_small.render("Resume", True, (255, 255, 255))
-            screen.blit(res_txt, (resume_btn_rect.x + resume_btn_rect.width // 2 - res_txt.get_width() // 2,
-                                  resume_btn_rect.y + 10))
-
-            # Nút Music
-            mus_color = (100, 100, 200) if toggle_music_btn_rect.collidepoint(mouse_pos) else (50, 50, 150)
-            pygame.draw.rect(screen, mus_color, toggle_music_btn_rect, border_radius=5)
-            mus_str = "Music: ON" if music_on else "Music: OFF"
-            if not has_music: mus_str = "No bgm.mp3"
-            mus_txt = font_small.render(mus_str, True, (255, 255, 255))
-            screen.blit(mus_txt, (toggle_music_btn_rect.x + toggle_music_btn_rect.width // 2 - mus_txt.get_width() // 2,
-                                  toggle_music_btn_rect.y + 10))
-
-            # Nút SFX
-            sfx_color = (200, 150, 50) if toggle_sfx_btn_rect.collidepoint(mouse_pos) else (150, 100, 30)
-            pygame.draw.rect(screen, sfx_color, toggle_sfx_btn_rect, border_radius=5)
-            sfx_str = "Sound: ON" if sfx_on else "Sound: OFF"
-            sfx_txt = font_small.render(sfx_str, True, (255, 255, 255))
-            screen.blit(sfx_txt, (toggle_sfx_btn_rect.x + toggle_sfx_btn_rect.width // 2 - sfx_txt.get_width() // 2,
-                                  toggle_sfx_btn_rect.y + 10))
-
-        # Layer 11: Màn hình Game Over
-        if game_over:
-            txt = font_large.render("GAME OVER", True, (255, 0, 0))
-            screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, HEIGHT // 2 - 40))
-
-        # Cập nhật toàn bộ màn hình và chốt khung hình (60 FPS)
         pygame.display.flip()
         clock.tick(FPS)
 
-    # Thoát game an toàn
     pygame.quit()
     sys.exit()
 

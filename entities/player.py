@@ -26,15 +26,17 @@ class Player:
     def __init__(self, x: float, y: float):
         self.x = x
         self.y = y
-        self.speed = 2.5
-        self.size = 64
+        self.speed = 2.0
+        self.size = 48
         self.max_hp = 100
         self.hp = 100
+        self.damage_flash = 0   # Đếm ngược frame hiệu ứng đỏ khi bị đánh (I-frame visual)
 
         # --- HỆ THỐNG CẤP ĐỘ (LEVEL) ---
         self.level = 1
         self.exp = 0
         self.max_exp = 100
+        self.level_up_pending = False  # Cờ báo hiệu: người chơi vừa lên cấp, chờ chọn phần thưởng
 
         self.weapons = [Gun()]
 
@@ -94,17 +96,12 @@ class Player:
 
     def trigger_level_up(self):
         """
-        Kích hoạt phần thưởng khi người chơi thăng cấp.
-        Cấp 2 nhận HolyAura, Cấp 3 nhận ThunderStorm, các cấp sau tăng sát thương.
+        Kích hoạt sự kiện thăng cấp.
+        Thay vì tự động gán vũ khí, đặt cờ `level_up_pending` để
+        Game Loop hiển thị màn hình chọn phần thưởng (Level Up Screen).
         """
         print(f"LÊN CẤP {self.level}!")
-        if self.level == 2:
-            self.weapons.append(HolyAura())
-        elif self.level == 3:
-            self.weapons.append(ThunderStorm())
-        else:
-            for weapon in self.weapons:
-                weapon.damage += 15
+        self.level_up_pending = True  # Gửi tín hiệu lên Game Loop để mở UI chọn vật phẩm
 
     def move(self, keys, map_width: float, map_height: float):
         """
@@ -192,6 +189,14 @@ class Player:
         img_rect = img_to_draw.get_rect()
         img_rect.center = (draw_x, draw_y)
         screen.blit(img_to_draw, img_rect.topleft)
+
+        # Hiệu ứng đỏ (Damage Flash): Overlay màu đỏ mờ khi bị đánh
+        if self.damage_flash > 0:
+            flash_surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+            alpha = int(200 * self.damage_flash / 12)
+            flash_surf.fill((255, 30, 30, alpha))
+            screen.blit(flash_surf, img_rect.topleft)
+            self.damage_flash -= 1
 
         # Vẽ thanh máu dưới chân nhân vật (hoặc trên đầu)
         hp_bar_width = self.size
