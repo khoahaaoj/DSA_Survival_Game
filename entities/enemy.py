@@ -1,7 +1,19 @@
 """
-Module cung cấp các lớp thực thể Quái vật (Enemy) trong trò chơi.
-Bao gồm lớp cơ sở Enemy xử lý di chuyển, AI bầy đàn (Separation), và hình ảnh.
-Các lớp kế thừa (Zombie, Bat, Golem) định nghĩa thông số riêng biệt.
+Module: entities/enemy.py
+Quản lý logic và hiển thị của toàn bộ loại kẻ địch trong game.
+
+Kiến trúc kế thừa:
+    Enemy (lớp cơ sở)  ←  Zombie, Bat, Golem (các lớp con)
+
+    Lớp cơ sở xử lý:
+        - Di chuyển hướng về player.
+        - Boids Separation: tránh chồng lên nhau bằng lực đẩy.
+        - Tải và hiển thị sprite animation.
+
+    Lớp con chỉ định nghĩa chỉ số:
+        - Zombie:  tốc độ trung bình, máu trung bình.
+        - Bat:     tốc độ nhanh, máu giấy.
+        - Golem:   tốc độ chậm, máu trâu và sát thương lớn.
 """
 import pygame
 import math
@@ -128,12 +140,15 @@ class Enemy:
 
     def draw(self, screen: pygame.Surface, camera_x: float, camera_y: float):
         """
-        Vẽ quái vật lên màn hình cùng với thanh máu (Health bar).
+        Vẽ kẻ địch lên màn hình cùng thanh máu (chỉ hiện khi bị thương).
+
+        Hoạt ảnh: chuyển frame mỗi 6 frame kẻ địch có nhiều khung hình;
+        nếu chỉ có 1 khung hình, giả lập bằng cách nhích nhẹ lên xuống.
 
         Args:
-            screen (pygame.Surface): Bề mặt để vẽ.
-            camera_x (float): Tọa độ X của camera.
-            camera_y (float): Tọa độ Y của camera.
+            screen (pygame.Surface): Bề mặt render của Pygame.
+            camera_x (float):        Độ lệch camera trục X (dùng để chuyển World → Screen).
+            camera_y (float):        Độ lệch camera trục Y.
         """
         draw_x = self.x - camera_x
         draw_y = self.y - camera_y
@@ -164,21 +179,32 @@ class Enemy:
 
 
 class Zombie(Enemy):
-    """Lớp quái vật Zombie có chỉ số cơ bản, di chuyển ở tốc độ trung bình."""
+    """
+    Kẻ địch loại Zombie: chỉ số cân bằng, xuất hiện chủ yếu ở Wave 1-3.
 
+    Tốc độ: 1.2 px/frame | Máu: 75 + 25×cấp | Sát thương: 10 + 2×cấp
+    """
     def __init__(self, x, y, player_level):
-        super().__init__(x, y, player_level, "zombie.png", 1.2, 75, 10, (34, 139, 34))  # HP: 50 → 75
+        super().__init__(x, y, player_level, "zombie.png", 1.2, 75, 10, (34, 139, 34))
 
 
 class Bat(Enemy):
-    """Lớp quái vật Dơi di chuyển nhanh nhưng máu giấy và sát thương thấp."""
+    """
+    Kẻ địch loại Dơi: cực nhanh nhưng mỏng manh, xuất hiện từ Wave 2.
 
+    Tốc độ: 2.5 px/frame | Máu: 20 + 25×cấp | Sát thương: 5 + 2×cấp
+    Nguy hiểm vì di chuyển khó dự đoán, hay luƳn lách qua đám đông.
+    """
     def __init__(self, x, y, player_level):
         super().__init__(x, y, player_level, "bat.png", 2.5, 20, 5, (75, 0, 130))
 
 
 class Golem(Enemy):
-    """Lớp quái vật Golem trâu bò, di chuyển cực chậm nhưng lượng máu và sát thương lớn."""
+    """
+    Kẻ địch loại Golem: rất chậm nhưng độ máu và sát thương cao nhất, xuất hiện từ Wave 3.
 
+    Tốc độ: 0.6 px/frame | Máu: 200 + 25×cấp | Sát thương: 25 + 2×cấp
+    Đây là đẫn kẻ địch dạy dạng để học thông điệp “kill nhanh trước khi chúng đến gần”.
+    """
     def __init__(self, x, y, player_level):
-        super().__init__(x, y, player_level, "golem.png", 0.6, 200, 25, (105, 105, 105))  # HP: 150 → 200
+        super().__init__(x, y, player_level, "golem.png", 0.6, 200, 25, (105, 105, 105))
