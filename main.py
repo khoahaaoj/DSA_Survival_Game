@@ -18,6 +18,7 @@ import os
 import sys
 import math
 import random
+import asyncio   # Pygbag yêu cầu để chạy game trên trình duyệt (WebAssembly)
 
 import pygame
 
@@ -74,7 +75,7 @@ def draw_map(screen: pygame.Surface, camera_x: float, camera_y: float,
 
 
 # ---------------------------------------------------------------------------
-def main():
+async def main():
     """
     Vòng đời chính của Game Engine.
 
@@ -423,10 +424,11 @@ def main():
 
         pygame.display.flip()
         clock.tick(FPS)
+        await asyncio.sleep(0)   # Trả quyền kiểm soát cho trình duyệt mỗi frame
 
     pygame.quit()
-    sys.exit()
+    # sys.exit() không dùng trên web — dùng return thay thế
+    return
 
 
-if __name__ == "__main__":
-    main()
+asyncio.run(main())
