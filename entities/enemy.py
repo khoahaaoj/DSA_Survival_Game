@@ -19,6 +19,8 @@ import pygame
 import math
 import os
 import random
+from settings import resource_path
+
 
 
 class Enemy:
@@ -56,7 +58,7 @@ class Enemy:
         self.current_frame = 0
         self.frames = []
 
-        img_path = os.path.join("assets", img_name)
+        img_path = resource_path(os.path.join("assets", img_name))
         if os.path.exists(img_path):
             sheet = pygame.image.load(img_path).convert_alpha()
             w, h = sheet.get_width(), sheet.get_height()

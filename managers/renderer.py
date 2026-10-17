@@ -132,7 +132,7 @@ class Renderer:
         mc = (100, 100, 200) if self.toggle_music_btn_rect.collidepoint(mouse_pos) else (50, 50, 150)
         pygame.draw.rect(screen, mc, self.toggle_music_btn_rect, border_radius=5)
         ms = "Music: ON" if music_on else "Music: OFF"
-        if not has_music: ms = "No bgm.mp3"
+        if not has_music: ms = "No Music"
         mt = self.font_small.render(ms, True, (255, 255, 255))
         screen.blit(mt, (self.toggle_music_btn_rect.centerx - mt.get_width() // 2,
                          self.toggle_music_btn_rect.y + 10))

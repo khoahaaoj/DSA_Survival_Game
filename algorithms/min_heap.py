@@ -141,4 +141,5 @@ class MinHeap:
         return len(self.heap)
 
     def __repr__(self) -> str:
-        return f"MinHeap({len(self.heap)} items, min={self.heap[0][0]:.1f} if self.heap else 'empty')"
+        min_val = f"{self.heap[0][0]:.1f}" if self.heap else 'empty'
+        return f"MinHeap({len(self.heap)} items, min={min_val})"

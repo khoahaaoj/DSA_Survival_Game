@@ -21,7 +21,7 @@ import random
 
 import pygame
 
-from settings         import WIDTH, HEIGHT, FPS, MAP_WIDTH, MAP_HEIGHT, TILE_SIZE, GRASS_FALLBACK_COLOR
+from settings         import WIDTH, HEIGHT, FPS, MAP_WIDTH, MAP_HEIGHT, TILE_SIZE, GRASS_FALLBACK_COLOR, resource_path
 from algorithms.quadtree  import QuadTree
 from algorithms.min_heap  import MinHeap
 from entities.player  import Player
@@ -40,7 +40,7 @@ def load_grass_tiles() -> list:
     Load grass texture, tạo 4 biến thể bằng flip matrix để đa dạng bản đồ.
     Tái sử dụng 1 texture gốc — tránh tốn bộ nhớ VRAM.
     """
-    img_path = os.path.join("assets", "grass.png")
+    img_path = resource_path(os.path.join("assets", "grass.png"))
     if not os.path.exists(img_path):
         return []
     base = pygame.image.load(img_path).convert()
@@ -84,28 +84,69 @@ def main():
         3. Rendering Pass — World → Entities → HUD → Overlays (thứ tự Layer)
     """
     # ===== KHỞI TẠO ENGINE =====
-    pygame.mixer.pre_init(44100, -16, 2, 512)
+    try:
+        pygame.mixer.pre_init(44100, -16, 2, 512)
+    except Exception:
+        pass
     pygame.init()
-    pygame.mixer.init()
+    try:
+        pygame.mixer.init()
+    except Exception:
+        pass
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("DSA Survival - UIT")
     clock  = pygame.time.Clock()
 
-    # --- Audio ---
-    bgm_path  = os.path.join("assets", "bgm.mp3")
-    has_music = os.path.exists(bgm_path)
+    # --- Audio (Robust Audio Initialization with safe fallbacks) ---
+    has_music = False
     music_on  = True
-    if has_music:
-        pygame.mixer.music.load(bgm_path)
-        pygame.mixer.music.set_volume(0.1)
-        pygame.mixer.music.play(-1)
+    sfx_on    = True
+    sfx_hit   = None
+    sfx_gem   = None
 
-    sfx_on  = True
-    sfx_hit = pygame.mixer.Sound("assets/hit.wav") if os.path.exists("assets/hit.wav") else None
-    sfx_gem = pygame.mixer.Sound("assets/gem.wav") if os.path.exists("assets/gem.wav") else None
-    if sfx_hit: sfx_hit.set_volume(0.2)
-    if sfx_gem: sfx_gem.set_volume(0.4)
+    # Hỗ trợ cả file .mp3 và .ogg
+    bgm_candidates = [
+        resource_path(os.path.join("assets", "bgm.mp3")),
+        resource_path(os.path.join("assets", "bgm-pygbag.ogg")),
+        resource_path(os.path.join("assets", "bgm.ogg")),
+    ]
+    bgm_path = next((p for p in bgm_candidates if os.path.exists(p)), None)
+    if bgm_path:
+        try:
+            pygame.mixer.music.load(bgm_path)
+            pygame.mixer.music.set_volume(0.1)
+            pygame.mixer.music.play(-1)
+            has_music = True
+        except Exception:
+            has_music = False
+
+    hit_candidates = [
+        resource_path(os.path.join("assets", "hit.wav")),
+        resource_path(os.path.join("assets", "hit-pygbag.ogg")),
+        resource_path(os.path.join("assets", "hit.ogg")),
+    ]
+    hit_path = next((p for p in hit_candidates if os.path.exists(p)), None)
+    if hit_path:
+        try:
+            sfx_hit = pygame.mixer.Sound(hit_path)
+            sfx_hit.set_volume(0.2)
+        except Exception:
+            sfx_hit = None
+
+    gem_candidates = [
+        resource_path(os.path.join("assets", "gem.wav")),
+        resource_path(os.path.join("assets", "gem-pygbag.ogg")),
+        resource_path(os.path.join("assets", "gem.ogg")),
+    ]
+    gem_path = next((p for p in gem_candidates if os.path.exists(p)), None)
+    if gem_path:
+        try:
+            sfx_gem = pygame.mixer.Sound(gem_path)
+            sfx_gem.set_volume(0.4)
+        except Exception:
+            sfx_gem = None
+
 
     # --- Fonts ---
     font_large  = pygame.font.SysFont(None, 80)

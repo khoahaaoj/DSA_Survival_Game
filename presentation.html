@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSA Survival Game — Thuyết Trình Đồ Án</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/black.min.css">
+<style>
+  :root { --accent: #00e5ff; --accent2: #ff6b35; --green: #00e676; }
+  .reveal { font-family: 'Segoe UI', sans-serif; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--accent); text-transform: none; }
+  .reveal .slides section { text-align: left; padding: 0 40px; }
+
+  /* Slide 1 - Title */
+  .title-slide { text-align: center !important; }
+  .title-slide h1 { font-size: 2em; color: var(--accent); margin-bottom: 10px; }
+  .title-slide .subtitle { font-size: 1.1em; color: #aaa; }
+  .title-slide .tag { display: inline-block; background: var(--accent2); color: white; padding: 6px 18px; border-radius: 20px; font-size: 0.8em; margin-top: 20px; }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+  .card { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); border-radius: 12px; padding: 18px 20px; }
+  .card h3 { color: var(--accent); font-size: 0.95em; margin: 0 0 8px 0; }
+  .card p { color: #ccc; font-size: 0.8em; margin: 0; line-height: 1.5; }
+  .card .badge { background: var(--accent2); color: white; border-radius: 4px; padding: 2px 8px; font-size: 0.7em; margin-bottom: 8px; display: inline-block; }
+
+  /* Problem slide */
+  .problem-box { background: rgba(255,107,53,0.15); border: 1px solid var(--accent2); border-radius: 10px; padding: 20px; margin: 16px 0; }
+  .formula { font-family: monospace; font-size: 1.2em; color: var(--accent2); text-align: center; padding: 10px; }
+  .formula span { color: var(--green); }
+
+  /* Stats */
+  .stat-row { display: flex; gap: 24px; margin-top: 20px; }
+  .stat { flex: 1; background: rgba(0,230,118,0.1); border: 1px solid var(--green); border-radius: 10px; padding: 16px; text-align: center; }
+  .stat .num { font-size: 2em; font-weight: bold; color: var(--green); }
+  .stat .label { font-size: 0.75em; color: #aaa; margin-top: 4px; }
+
+  /* Code block */
+  pre { background: #1a1a2e; border-radius: 8px; padding: 14px; font-size: 0.7em; line-height: 1.5; border-left: 3px solid var(--accent); overflow: auto; }
+  code { color: #e0e0e0; }
+  .kw { color: #ff79c6; }
+  .fn { color: #50fa7b; }
+  .cm { color: #6272a4; }
+  .str { color: #f1fa8c; }
+
+  /* Complexity badge */
+  .cx { display: inline-block; background: rgba(0,229,255,0.2); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; padding: 2px 10px; font-family: monospace; font-size: 0.85em; }
+  .cx-bad { background: rgba(255,107,53,0.2); border-color: var(--accent2); color: var(--accent2); }
+
+  /* Arrow */
+  .arrow { text-align: center; font-size: 1.5em; color: var(--accent); margin: 6px 0; }
+
+  /* List */
+  .reveal ul { margin-left: 0; list-style: none; }
+  .reveal ul li { padding: 6px 0; padding-left: 24px; position: relative; color: #ccc; font-size: 0.85em; }
+  .reveal ul li::before { content: "▸"; color: var(--accent); position: absolute; left: 0; }
+
+  /* Speaker notes */
+  .reveal .speaker-notes { display: none; }
+
+  /* Highlight */
+  .hl { color: var(--accent); font-weight: bold; }
+  .hl2 { color: var(--accent2); font-weight: bold; }
+
+  /* Section label */
+  .section-label { font-size: 0.65em; color: #666; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
+
+  /* vs table */
+  .vs-table { width: 100%; border-collapse: collapse; font-size: 0.8em; margin-top: 16px; }
+  .vs-table th { background: rgba(0,229,255,0.15); color: var(--accent); padding: 8px 12px; text-align: left; }
+  .vs-table td { padding: 8px 12px; border-bottom: 1px solid #333; color: #ccc; }
+  .vs-table .good { color: var(--green); }
+  .vs-table .bad { color: var(--accent2); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .ascii { font-family: monospace; font-size: 0.72em; color: #aaa; line-height: 1.4; background: #111; border-radius: 8px; padding: 14px; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- SLIDE 1: TITLE -->
+<section class="title-slide" data-transition="zoom">
+  <div style="margin-bottom:30px">
+    <div style="font-size:3.5em">🎮</div>
+  </div>
+  <h1>DSA Survival Game</h1>
+  <p class="subtitle">Ứng dụng Cấu trúc Dữ liệu &amp; Giải thuật<br>vào phát triển Game Sinh Tồn 2D</p>
+  <div class="tag">Đồ án môn CTDL &amp; GT · Python · Pygame</div>
+  <div style="margin-top:30px;font-size:0.7em;color:#555">Thuyết trình · 4 phút</div>
+</section>
+
+<!-- SLIDE 2: BÀI TOÁN -->
+<section data-transition="slide">
+  <div class="section-label">01 · Bài toán kỹ thuật</div>
+  <h2>Tại sao cần thuật toán?</h2>
+
+  <div class="two-col" style="margin-top:16px">
+    <div>
+      <p style="color:#aaa;font-size:0.85em">Game có tới <span class="hl">400 kẻ địch</span> + đạn hoạt động đồng thời ở <span class="hl">60 FPS</span>.</p>
+      <div class="problem-box" style="margin-top:12px">
+        <p style="color:#aaa;font-size:0.8em;margin:0 0 8px 0">Cách đơn giản nhất:</p>
+        <div class="formula"><span class="cx-bad">O(N²)</span></div>
+        <p style="color:#aaa;font-size:0.75em;margin:8px 0 0 0">
+          400 enemy × 400 = <span style="color:var(--accent2)">160,000 phép tính/frame</span><br>
+          × 60 FPS = <span style="color:var(--accent2)">9,600,000 phép tính/giây ❌</span>
+        </p>
+      </div>
+    </div>
+    <div>
+      <p style="color:#aaa;font-size:0.85em">Giải pháp: <span class="hl">4 cấu trúc dữ liệu tự cài đặt</span></p>
+      <div class="problem-box" style="border-color:var(--green);background:rgba(0,230,118,0.08);margin-top:12px">
+        <div class="formula"><span class="cx">O(N log N)</span></div>
+        <p style="color:#aaa;font-size:0.75em;margin:8px 0 0 0">
+          400 × log₂(400) ≈ <span style="color:var(--green)">3,440 phép tính/frame ✅</span><br>
+          Nhanh hơn ~<span style="color:var(--green)">46 lần</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 3: TỔNG QUAN DSA -->
+<section data-transition="slide">
+  <div class="section-label">02 · Kiến trúc thuật toán</div>
+  <h2>4 Cấu trúc Dữ liệu cốt lõi</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="badge">Collision Detection</div>
+      <h3>🌳 QuadTree</h3>
+      <p>Phân vùng không gian đệ quy. Chỉ kiểm tra va chạm trong cùng vùng.</p>
+      <p style="margin-top:8px"><span class="cx-bad">O(N²)</span> → <span class="cx">O(N log N)</span></p>
+    </div>
+    <div class="card">
+      <div class="badge">Auto-Aim</div>
+      <h3>📊 MinHeap</h3>
+      <p>Hàng đợi ưu tiên. Kẻ địch gần nhất luôn ở đỉnh, lấy ra trong O(1).</p>
+      <p style="margin-top:8px">Tìm target: <span class="cx">O(log N)</span></p>
+    </div>
+    <div class="card">
+      <div class="badge">Wave System</div>
+      <h3>📋 Queue FIFO</h3>
+      <p>Quản lý thứ tự Wave. Con trỏ head tránh dịch chuyển mảng O(N).</p>
+      <p style="margin-top:8px">Enqueue/Dequeue: <span class="cx">O(1)</span></p>
+    </div>
+    <div class="card">
+      <div class="badge">Spawn Logic</div>
+      <h3>🎰 Roulette Selection</h3>
+      <p>Chọn loại quái theo xác suất. Prefix Sum + Binary Search.</p>
+      <p style="margin-top:8px">Chọn ngẫu nhiên: <span class="cx">O(log N)</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 4: QUADTREE CHI TIẾT -->
+<section data-transition="slide">
+  <div class="section-label">03 · Chi tiết · QuadTree</div>
+  <h2>QuadTree — Phân Vùng Không Gian</h2>
+
+  <div class="two-col">
+    <div>
+      <!-- Ảnh debug QuadTree thật từ game -->
+      <img src="assets/screenshot_quadtree.png"
+           style="width:100%;border-radius:8px;border:2px solid #ff69b4;"
+           alt="QuadTree debug mode" />
+      <p style="color:#aaa;font-size:0.72em;margin-top:8px;text-align:center">
+        📸 <em>Debug mode thật trong game</em> — Lưới tím = phân vùng QuadTree<br>
+        Vòng tròn xanh = HolyAura AoE · Nhấn <kbd style="background:#333;padding:1px 5px;border-radius:3px">Q</kbd> để bật
+      </p>
+    </div>
+    <div>
+      <pre><code><span class="kw">def</span> <span class="fn">insert</span>(self, enemy):
+    <span class="cm"># Ngoài vùng → bỏ qua</span>
+    <span class="kw">if not</span> self.boundary\
+           .colliderect(e_rect):
+        <span class="kw">return False</span>
+    <span class="cm"># Còn chỗ → lưu</span>
+    <span class="kw">if</span> len(self.enemies) &lt; self.capacity:
+        self.enemies.append(enemy)
+        <span class="kw">return True</span>
+    <span class="cm"># Đầy → chia 4 ô con</span>
+    <span class="kw">if not</span> self.divided:
+        self.subdivide()  <span class="cm"># O(1)</span>
+    ...  <span class="cm"># đệ quy xuống con</span></code></pre>
+      <p style="color:#aaa;font-size:0.75em;margin-top:10px">Nhấn <kbd style="background:#333;padding:2px 6px;border-radius:4px">Q</kbd> khi chơi để xem debug mode</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 5: MINHEAP + QUEUE + ROULETTE -->
+<section data-transition="slide">
+  <div class="section-label">04 · Chi tiết · MinHeap · Queue · Roulette</div>
+  <h2>3 Thuật Toán Còn Lại</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px">
+    <div class="card">
+      <h3>MinHeap</h3>
+      <div class="ascii" style="font-size:0.65em;padding:10px">
+   45 ← min (gần nhất)
+  /    \
+120    88
+      </div>
+      <p style="margin-top:8px">Heap[0] = enemy gần nhất. Pop() lấy ngay, không cần sort toàn bộ.</p>
+    </div>
+    <div class="card">
+      <h3>Queue FIFO</h3>
+      <div class="ascii" style="font-size:0.65em;padding:10px">
+[W1][W2][W3][W4][W5]
+  ↑ _head pointer
+dequeue: O(1)
+  </div>
+      <p style="margin-top:8px">Con trỏ _head thay vì pop(0) → tránh dịch mảng O(N).</p>
+    </div>
+    <div class="card">
+      <h3>Roulette</h3>
+      <div class="ascii" style="font-size:0.65em;padding:10px">
+weights=[60, 30, 10]
+prefix =[60, 90,100]
+roll=75 → Bat ✓
+Binary Search O(logN)
+      </div>
+      <p style="margin-top:8px">Chọn loại quái theo tỉ lệ: Zombie 60%, Bat 30%, Golem 10%.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 6: TỐI ƯU HOÁ -->
+<section data-transition="slide">
+  <div class="section-label">05 · Tối ưu hóa</div>
+  <h2>Micro-Optimizations</h2>
+
+  <table class="vs-table">
+    <tr>
+      <th>Kỹ thuật</th>
+      <th>Trước</th>
+      <th>Sau</th>
+      <th>Lý do</th>
+    </tr>
+    <tr>
+      <td>Boids Separation</td>
+      <td class="bad">sqrt() mọi lần</td>
+      <td class="good">So sánh bình phương trước</td>
+      <td>Giảm ~67% sqrt() calls</td>
+    </tr>
+    <tr>
+      <td>Floating text</td>
+      <td class="bad">list.remove() → O(N²)</td>
+      <td class="good">List rebuild → O(N)</td>
+      <td>Tránh dịch mảng liên tục</td>
+    </tr>
+    <tr>
+      <td>Map rendering</td>
+      <td class="bad">Vẽ toàn bộ map</td>
+      <td class="good">Viewport culling</td>
+      <td>Chỉ vẽ tile trên màn hình</td>
+    </tr>
+    <tr>
+      <td>Visual feedback</td>
+      <td class="bad">Không có</td>
+      <td class="good">Screen shake, particles</td>
+      <td>Game feel tốt hơn</td>
+    </tr>
+  </table>
+</section>
+
+<!-- SLIDE 7: KẾT QUẢ -->
+<section data-transition="slide">
+  <div class="section-label">06 · Kết quả thực tế</div>
+  <h2>Kết Quả Đạt Được</h2>
+
+  <div class="two-col" style="gap:24px;margin-top:12px">
+    <div>
+      <!-- Ảnh gameplay thật -->
+      <img src="assets/screenshot_gameplay.png"
+           style="width:100%;border-radius:8px;border:2px solid #00e5ff;"
+           alt="Gameplay screenshot" />
+      <p style="color:#aaa;font-size:0.7em;margin-top:6px;text-align:center">
+        📸 <em>Wave 3 · LV 7 · ~40 enemy đồng thời</em>
+      </p>
+    </div>
+    <div>
+      <div class="stat-row" style="flex-direction:column;gap:10px;margin-top:0">
+        <div class="stat" style="padding:12px">
+          <div class="num" style="font-size:1.6em">60 FPS</div>
+          <div class="label">ổn định với 400 entity</div>
+        </div>
+        <div class="stat" style="padding:12px">
+          <div class="num" style="font-size:1.6em">46×</div>
+          <div class="label">nhanh hơn brute-force</div>
+        </div>
+        <div class="stat" style="padding:12px">
+          <div class="num" style="font-size:1.6em">4</div>
+          <div class="label">DSA tự cài đặt từ đầu</div>
+        </div>
+      </div>
+      <ul style="margin-top:14px">
+        <li>5 Wave + Endless Mode · Queue</li>
+        <li>3 loại quái · Roulette Selection</li>
+        <li>Vũ khí: Gun → HolyAura → Thunder</li>
+        <li>Module: <code>algorithms/ entities/ managers/</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 8: KẾT LUẬN -->
+<section class="title-slide" data-transition="zoom">
+  <h2 style="font-size:1.6em">Kết Luận</h2>
+  <div style="max-width:700px;margin:20px auto">
+    <div class="problem-box" style="border-color:var(--green);background:rgba(0,230,118,0.08);text-align:center">
+      <p style="color:#ccc;font-size:0.9em;margin:0">
+        Từ <span class="cx-bad">O(N²) = 160,000</span> phép tính/frame<br>
+        xuống <span class="cx">O(N log N) = 3,440</span> phép tính/frame<br><br>
+        <strong style="color:var(--green);font-size:1.1em">Game chạy được — Bài toán được giải ✅</strong>
+      </p>
+    </div>
+  </div>
+  <div class="card-grid" style="max-width:700px;margin:16px auto">
+    <div style="text-align:center;padding:10px">
+      <div style="font-size:1.5em">🌳</div>
+      <div style="color:var(--accent);font-size:0.8em">QuadTree</div>
+    </div>
+    <div style="text-align:center;padding:10px">
+      <div style="font-size:1.5em">📊</div>
+      <div style="color:var(--accent);font-size:0.8em">MinHeap</div>
+    </div>
+    <div style="text-align:center;padding:10px">
+      <div style="font-size:1.5em">📋</div>
+      <div style="color:var(--accent);font-size:0.8em">Queue FIFO</div>
+    </div>
+    <div style="text-align:center;padding:10px">
+      <div style="font-size:1.5em">🎰</div>
+      <div style="color:var(--accent);font-size:0.8em">Roulette</div>
+    </div>
+  </div>
+  <p style="color:#555;font-size:0.7em;margin-top:20px">Em xin hết phần trình bày. Cảm ơn thầy/cô!</p>
+</section>
+
+</div><!-- slides -->
+</div><!-- reveal -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script>
+Reveal.initialize({
+  hash: true,
+  slideNumber: true,
+  transition: 'slide',
+  backgroundTransition: 'fade',
+  controls: true,
+  progress: true,
+  center: false,
+  width: 1100,
+  height: 650,
+});
+</script>
+</body>
+</html>

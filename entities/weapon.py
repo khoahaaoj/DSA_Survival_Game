@@ -179,8 +179,9 @@ class HolyAura(Weapon):
     def update(self, player, quadtree, target_heap, current_time) -> list:
         events = []
         if current_time - self.last >= self.tick:
-            # Truy vấn vùng hình chữ nhật bao quanh bán kính Aura
-            nearby = quadtree.query(pygame.Rect(player.x - 120, player.y - 120, 240, 240), [])
+            # Truy vấn vùng hình chữ nhật bao quanh bán kính Aura theo cấp độ
+            r = self.radius
+            nearby = quadtree.query(pygame.Rect(player.x - r, player.y - r, r * 2, r * 2), [])
             for e in nearby:
                 if math.sqrt((player.x - e.x) ** 2 + (player.y - e.y) ** 2) < self.radius:
                     e.hp -= self.damage

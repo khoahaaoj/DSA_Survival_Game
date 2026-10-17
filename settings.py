@@ -1,4 +1,20 @@
-# settings.py
+import os
+import sys
+
+# ==========================================
+# QUẢN LÝ ĐƯỜNG DẪN TÀI NGUYÊN (ASSET RESOLUTION)
+# ==========================================
+# Tương thích cả khi chạy từ mã nguồn (.py) lẫn khi đóng gói PyInstaller (.exe)
+BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+
+
+def resource_path(relative_path: str) -> str:
+    """
+    Trả về đường dẫn tuyệt đối đến file tài nguyên.
+    Giúp game luôn tìm thấy ảnh, âm thanh dù người dùng khởi động từ bất kỳ thư mục nào.
+    """
+    return os.path.join(BASE_DIR, relative_path)
+
 
 # ==========================================
 # THÔNG SỐ MÀN HÌNH & HIỆU NĂNG

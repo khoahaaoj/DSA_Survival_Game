@@ -5,7 +5,9 @@ Quản lý trạng thái, cấp độ, kinh nghiệm, di chuyển và kho vũ kh
 import pygame
 import math
 import os
+from settings import resource_path
 from entities.weapon import Gun, HolyAura, ThunderStorm
+
 
 
 class Player:
@@ -49,7 +51,7 @@ class Player:
         # ==========================================
         # XỬ LÝ ẢNH SPRITESHEET NHÂN VẬT MỚI
         # ==========================================
-        img_path = os.path.join("assets", "Soldier-Idle.png")
+        img_path = resource_path(os.path.join("assets", "Soldier-Idle.png"))
         if os.path.exists(img_path):
             sheet = pygame.image.load(img_path).convert_alpha()
 
@@ -113,10 +115,11 @@ class Player:
             map_height (float): Chiều cao tối đa của bản đồ.
         """
         dx, dy = 0, 0
-        if keys[pygame.K_w]: dy -= 1
-        if keys[pygame.K_s]: dy += 1
-        if keys[pygame.K_a]: dx -= 1
-        if keys[pygame.K_d]: dx += 1
+        if keys[pygame.K_w] or keys[pygame.K_UP]:    dy -= 1
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:  dy += 1
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:  dx -= 1
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]: dx += 1
+
 
         if dx > 0:
             self.facing_right = True

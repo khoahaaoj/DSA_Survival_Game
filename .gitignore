@@ -2,24 +2,43 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*/__pycache__/
+*/*/__pycache__/
 
-# Virtual Environment
+# Virtual Environments
 venv/
 ENV/
 env/
 .env
+.venv/
+env.bak/
+venv.bak/
 
 # IDEs and editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
 # OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Build artifacts
+# Packaging and Build artifacts
 build/
 dist/
+*.spec
 *.egg-info/
+.eggs/
+
+# Pygbag / WebAssembly artifacts
+build/web-cache/
+*.apk
+*.tar.gz
+

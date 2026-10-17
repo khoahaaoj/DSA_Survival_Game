@@ -1,9 +1,14 @@
-name: Build Windows EXE
+name: Build & Release Windows EXE
 
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -25,15 +30,28 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          python -m PyInstaller --onedir --windowed --name "DSA_Survival_Game" `
+          python -m PyInstaller --noconfirm --onedir --windowed --name "DSA_Survival_Game" `
             --add-data "assets;assets" `
             --add-data "settings.py;." `
             --hidden-import pygame `
             --collect-all pygame `
             main.py
 
+      - name: Compress Build to ZIP
+        run: |
+          Compress-Archive -Path dist/DSA_Survival_Game -DestinationPath dist/DSA-Survival-Game-Windows.zip
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: DSA-Survival-Game-Windows
-          path: dist/DSA_Survival_Game
+          path: dist/DSA-Survival-Game-Windows.zip
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DSA-Survival-Game-Windows.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
