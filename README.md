@@ -1,12 +1,24 @@
 # ⚔️ DSA Survival: Top-Down Time Survival Game
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white" alt="Python 3.10+" />
-  <img src="https://img.shields.io/badge/Pygame-2.5%2B-green.svg?logo=pygame&logoColor=white" alt="Pygame 2.5+" />
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Web-orange.svg" alt="Platform" />
-  <img src="https://img.shields.io/badge/University-UIT%20VNU--HCM-red.svg" alt="UIT" />
-  <img src="https://img.shields.io/badge/License-MIT-lightgrey.svg" alt="License" />
+  <a href="https://github.com/khoahaaoj/DSA_Survival_Game/actions/workflows/build.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/khoahaaoj/DSA_Survival_Game/build.yml?branch=main&label=Build%20EXE&logo=github&style=for-the-badge" alt="Build Status" />
+  </a>
+  <a href="https://github.com/khoahaaoj/DSA_Survival_Game/releases">
+    <img src="https://img.shields.io/github/v/release/khoahaaoj/DSA_Survival_Game?color=brightgreen&label=Release&logo=github&style=for-the-badge" alt="Latest Version" />
+  </a>
+  <a href="https://github.com/khoahaaoj/DSA_Survival_Game/releases">
+    <img src="https://img.shields.io/github/downloads/khoahaaoj/DSA_Survival_Game/total?color=0078D6&label=Downloads&logo=windows&style=for-the-badge" alt="Downloads" />
+  </a>
 </p>
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Pygame-2.6-FFD43B?style=for-the-badge&logo=python&logoColor=black" alt="Pygame" />
+  <img src="https://img.shields.io/badge/University-UIT%20VNU--HCM-E53935?style=for-the-badge&logo=googleclassroom&logoColor=white" alt="UIT" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Web-4CAF50?style=for-the-badge" alt="Platform" />
+  <img src="https://img.shields.io/badge/License-MIT-9C27B0?style=for-the-badge" alt="License" />
+</p>
+
 
 Một tựa game sinh tồn 2D nhịp độ cao (phong cách *Vampire Survivors*) được phát triển trên nền tảng **Python / Pygame**. Dự án áp dụng chuyên sâu các **Cấu trúc dữ liệu và Giải thuật (DSA)** tự cài đặt từ đầu nhằm giải quyết bài toán tối ưu hóa hiệu năng thời gian thực, duy trì ổn định **60 FPS** khi kết xuất và tính toán va chạm cho hàng trăm quái vật trên màn hình.
 
