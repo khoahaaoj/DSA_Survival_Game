@@ -206,12 +206,13 @@ DSA_Survival_Game/
 ## 👨‍💻 Tác giả & Đồ án
 
 - **Tác giả:** Hà Nhật Khoa (MSSV: 25520854)
-- **Lớp:** IT003.Q21.CTTN
-- **Đơn vị:** Khoa Khoa học Máy tính — Trường Đại học Công nghệ Thông tin (UIT), ĐHQG TP.HCM.
-- **Học phần:** IT003 — Cấu trúc dữ liệu và Giải thuật.
+- **Lớp:** ATTN2025 (Chương trình An toàn Thông tin Tài năng - Khóa K20)
+- **Trường:** Đại học Công nghệ Thông tin (UIT) — ĐHQG TP.HCM.
+- **Học phần:** IT003 — Cấu trúc dữ liệu và Giải thuật (DSA).
 
 ---
 
 <p align="center">
-  <i>Được phát triển với niềm đam mê dành cho Game Development và Khoa học Máy tính.</i>
+  <i>Được phát triển với niềm đam mê dành cho Game Development, Toán học giải thuật và An toàn thông tin.</i>
 </p>
+
